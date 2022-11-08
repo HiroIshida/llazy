@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 import subprocess
 from dataclasses import dataclass
@@ -49,20 +50,24 @@ class Dataset(Generic[ChunkT]):
 
     def get_data(self, indices: np.ndarray) -> List[ChunkT]:
         if self.n_worker == 1:
-            return self._get_data(indices)
+            paths = [self.compressed_path_list[i] for i in indices]
+            return self.load_chunks(paths, self.chunk_type)
         else:
-            return self._get_data_paralllel(indices)
+            assert False
 
-    def _get_data(self, indices: np.ndarray) -> List[ChunkT]:
+    @staticmethod
+    def load_chunks(paths: List[Path], chunk_type: Type[ChunkT]) -> List[ChunkT]:
         chunk_list: List[ChunkT] = []
-        for idx in indices:
-            path = self.compressed_path_list[idx]
+        for path in paths:
             command = "gunzip --keep -f {}".format(path)
             subprocess.run(command, shell=True)
             path_decompressed = path.parent / path.stem
-            chunk = self.chunk_type.load(path_decompressed)
+            chunk = chunk_type.load(path_decompressed)
             chunk_list.append(chunk)
         return chunk_list
 
     def _get_data_paralllel(self, indices: np.ndarray) -> List[ChunkT]:
+        pool = multiprocessing.Pool(self.n_worker)
+        np.array_split(indices)
+        pool.map(data_generation_task, zip(range(n_cpu), n_process_list_assign))
         return self._get_data(indices)

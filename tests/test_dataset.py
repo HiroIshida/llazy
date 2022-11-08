@@ -8,7 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hugedata.dataset import ChunkBase, Dataset
+from llazy.dataset import ChunkBase, Dataset
 
 
 @dataclass
