@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup_requires = []
 
-install_requires = ["numpy", "dill"]
+install_requires = ["numpy", "dill", "torch"]
 
 setup(
     name="llazy",

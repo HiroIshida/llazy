@@ -6,9 +6,11 @@ from dataclasses import dataclass
 from multiprocessing import Process
 from pathlib import Path
 from queue import Queue
-from typing import Generic, List, Type, TypeVar
+from typing import Generic, List, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
+import torch
+from torch.utils.data import default_collate
 
 _has_gzip = subprocess.run("which gzip > /dev/null", shell=True).returncode == 0
 _has_pigz = subprocess.run("which pigz > /dev/null", shell=True).returncode == 0
@@ -16,26 +18,33 @@ assert _has_gzip or _has_pigz
 _unzip_command = "unpigz" if _has_pigz else "gunzip"
 _zip_command = "pigz" if _has_pigz else "gzip"
 
-ChunkT = TypeVar("ChunkT", bound="ChunkBase")
+ChunkT = TypeVar("ChunkT", bound="ChunkProtocol")
+TorchChunkT = TypeVar("TorchChunkT", bound="TorchChunkProtocol")
 
 
-class ChunkBase(ABC):
+class ChunkProtocol(ABC):
     @classmethod
     @abstractmethod
     def load(cls: Type[ChunkT], path: Path) -> ChunkT:
-        ...
+        pass
 
     @abstractmethod
     def dump(self, path: Path) -> None:
-        ...
+        pass
 
     @abstractmethod
     def __len__(self) -> int:
-        ...
+        pass
+
+
+class TorchChunkProtocol(ChunkProtocol):
+    @abstractmethod
+    def to_tensors(self) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
+        pass
 
 
 @dataclass
-class Dataset(Generic[ChunkT]):
+class LazyDecomplessDataset(Generic[ChunkT]):
     base_path: Path
     compressed_path_list: List[Path]
     chunk_type: Type[ChunkT]
@@ -51,7 +60,7 @@ class Dataset(Generic[ChunkT]):
     @classmethod
     def load(
         cls, base_path: Path, chunk_type: Type[ChunkT], n_worker: int = -1
-    ) -> "Dataset[ChunkT]":
+    ) -> "LazyDecomplessDataset[ChunkT]":
         path_list = []
         for p in base_path.iterdir():
             if p.name.endswith(".gz"):
@@ -94,3 +103,45 @@ class Dataset(Generic[ChunkT]):
             path_decompressed = path.parent / path.stem
             chunk = chunk_type.load(path_decompressed)
             q.put(chunk)
+
+
+@dataclass
+class LazyDecomplessDataLoader(Generic[TorchChunkT]):
+    r"""
+    A dataloader class that has the similar inteface as
+    pytorch DataLoader
+    """
+    dataset: LazyDecomplessDataset[TorchChunkT]
+    batch_size: int = 1
+    shuffle: bool = True
+    _indices_per_iter: Optional[List[np.ndarray]] = None  # set when __iter__ called
+
+    def __iter__(self) -> "LazyDecomplessDataLoader[TorchChunkT]":
+        n_dataset = len(self.dataset)
+        indices = np.arange(n_dataset)
+        if self.shuffle:
+            np.random.shuffle(indices)
+
+        n_iter = (n_dataset // self.batch_size) + 1
+
+        indices_list_per_iter = []
+        head = 0
+        for i in range(n_iter):
+            step = self.batch_size if i < n_iter - 1 else n_dataset % self.batch_size
+            indices = np.arange(head, head + step)
+            indices_list_per_iter.append(indices)
+            head += self.batch_size
+
+        self._indices_per_iter = indices_list_per_iter
+        return self
+
+    def __next__(self) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
+        assert self._indices_per_iter is not None
+        if len(self._indices_per_iter) == 0:
+            raise StopIteration()
+
+        indices = self._indices_per_iter.pop()
+        chunk_list = self.dataset.get_data(indices)
+
+        zipped = [chunk.to_tensors() for chunk in chunk_list]
+        return default_collate(zipped)
