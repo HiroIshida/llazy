@@ -2,7 +2,7 @@ import multiprocessing
 import os
 import subprocess
 from abc import ABC, abstractmethod
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass, fields
 from multiprocessing import Process
 from pathlib import Path
 from queue import Queue
@@ -56,7 +56,11 @@ class DillableChunkBase(ChunkBase):
         return cls(**dic)
 
     def dump_impl(self, path: Path) -> None:
-        dic = asdict(self)
+        # as a shallow dict instead of dataclasses.asdict
+        dic = {}
+        for field in fields(self):
+            key = field.name
+            dic[key] = self.__dict__[key]
         with path.open(mode="wb") as f:
             dill.dump(dic, f)
 
