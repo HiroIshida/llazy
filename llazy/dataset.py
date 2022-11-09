@@ -10,6 +10,12 @@ from typing import Generic, List, Type, TypeVar
 
 import numpy as np
 
+_has_gzip = subprocess.run("which gzip > /dev/null", shell=True).returncode == 0
+_has_pigz = subprocess.run("which pigz > /dev/null", shell=True).returncode == 0
+assert _has_gzip or _has_pigz
+_unzip_command = "unpigz" if _has_pigz else "gunzip"
+_zip_command = "pigz" if _has_pigz else "gzip"
+
 ChunkT = TypeVar("ChunkT", bound="ChunkBase")
 
 
@@ -83,7 +89,7 @@ class Dataset(Generic[ChunkT]):
     @staticmethod
     def load_chunks(paths: List[Path], chunk_type: Type[ChunkT], q: "Queue[ChunkT]") -> None:
         for path in paths:
-            command = "gunzip --keep -f {}".format(path)
+            command = "{} --keep -f {}".format(_unzip_command, path)
             subprocess.run(command, shell=True)
             path_decompressed = path.parent / path.stem
             chunk = chunk_type.load(path_decompressed)

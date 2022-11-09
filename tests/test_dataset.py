@@ -10,7 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
-from llazy.dataset import ChunkBase, Dataset
+from llazy.dataset import ChunkBase, Dataset, _zip_command
 
 
 @dataclass
@@ -48,7 +48,7 @@ def test_dataset():
             name = str(uuid.uuid4()) + ".pkl"
             path = base_path / name
             chunk.dump(path)
-            cmd = "gzip -1 -f {}".format(path)
+            cmd = "{} -1 -f {}".format(_zip_command, path)
             subprocess.run(cmd, shell=True)
 
             hash_value_original += compute_hashint(chunk)
@@ -77,6 +77,7 @@ def test_dataset():
         assert cpu_count is not None
         has_morethan_two_core = cpu_count >= 4
         if has_morethan_two_core:
+            print(elapsed_times)
             assert elapsed_times[1] < elapsed_times[0] * 0.7
 
 
