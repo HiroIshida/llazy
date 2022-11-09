@@ -78,6 +78,9 @@ def test_dataset():
                     hash_value_load += compute_hashint(chunk)
             elapsed_times.append(time.time() - ts)
 
+            trash_num = len([p for p in base_path.iterdir() if p.name.endswith(".pkl")])
+            assert trash_num == 0
+
             # compare hash
             assert hash_value_original == hash_value_load
 

@@ -115,6 +115,11 @@ class LazyDecomplessDataset(Generic[ChunkT]):
 
         paths = [index_to_uncompressed_path(i) for i in indices]
         chunk_list = [self.chunk_type.load(path) for path in paths]
+
+        # remove trash
+        string_paths = [str(path) for path in paths]
+        command = "rm %s" % " ".join(string_paths)
+        subprocess.run(command, shell=True)
         return chunk_list
 
     @staticmethod
