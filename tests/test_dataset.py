@@ -104,8 +104,6 @@ def test_dataloader():
             name = str(uuid.uuid4()) + ".pkl"
             path = base_path / name
             chunk.dump(path)
-            cmd = "{} -1 -f {}".format(_zip_command, path)
-            subprocess.run(cmd, shell=True)
 
         batch_size = 50
 
