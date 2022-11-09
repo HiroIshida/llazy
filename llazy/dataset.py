@@ -30,7 +30,7 @@ class ChunkBase(ABC):
         pass
 
     @abstractmethod
-    def dump(self, path: Path) -> None:
+    def dump_impl(self, path: Path) -> None:
         pass
 
     @abstractmethod
@@ -41,6 +41,11 @@ class ChunkBase(ABC):
     def to_tensors(self) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
         pass
 
+    def dump(self, path: Path) -> None:
+        self.dump_impl(path)
+        command = "{0} -1 {1}".format(_zip_command, path)
+        subprocess.run(command, shell=True)
+
 
 @dataclass  # type: ignore
 class DillableChunkBase(ChunkBase):
@@ -50,7 +55,7 @@ class DillableChunkBase(ChunkBase):
             data = dill.load(f)
         return data
 
-    def dump(self, path: Path) -> None:
+    def dump_impl(self, path: Path) -> None:
         with path.open(mode="wb") as f:
             dill.dump(self, f)
 

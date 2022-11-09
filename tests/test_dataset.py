@@ -61,9 +61,6 @@ def test_dataset():
             name = str(uuid.uuid4()) + ".pkl"
             path = base_path / name
             chunk.dump(path)
-            cmd = "{} -1 -f {}".format(_zip_command, path)
-            subprocess.run(cmd, shell=True)
-
             hash_value_original += compute_hashint(chunk)
 
         # load
