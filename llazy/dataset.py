@@ -73,8 +73,9 @@ class LazyDecomplessDataset(Generic[ChunkT]):
 
     def __post_init__(self):
         if self.n_worker == -1:
-            n_cpu = os.cpu_count()
-            assert n_cpu is not None
+            n_cpu_virtual = os.cpu_count()
+            assert n_cpu_virtual is not None
+            n_cpu = int(round(n_cpu_virtual * 0.5))
             self.n_worker = n_cpu
 
     @classmethod
