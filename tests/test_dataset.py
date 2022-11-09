@@ -86,7 +86,7 @@ def test_dataset():
         has_morethan_two_core = cpu_count >= 4
         if has_morethan_two_core:
             print(elapsed_times)
-            assert elapsed_times[1] < elapsed_times[0] * 0.7
+            assert elapsed_times[1] < elapsed_times[0] * 0.9
 
 
 def test_dataloader():
@@ -113,8 +113,6 @@ def test_dataloader():
                 assert loader._indices_per_iter is not None
                 for indices in loader._indices_per_iter:
                     index_set = index_set.union(indices)
-                print(index_set)
-                print(set(list(range(n_chunk))))
                 assert index_set == set(list(range(n_chunk)))
 
                 n_data_sum = 0

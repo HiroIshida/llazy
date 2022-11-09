@@ -1,4 +1,3 @@
-import multiprocessing
 import os
 import pickle
 import subprocess
@@ -6,7 +5,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, fields
 from multiprocessing import Process
 from pathlib import Path
-from queue import Queue
 from typing import Generic, List, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
@@ -94,37 +92,36 @@ class LazyDecomplessDataset(Generic[ChunkT]):
 
     def get_data(self, indices: np.ndarray) -> List[ChunkT]:
         is_worth_parallelizing = len(indices) > self.parallelize_threshold
-        q: "Queue[ChunkT]"
         if self.n_worker > 1 and is_worth_parallelizing:
-            q = multiprocessing.Queue()
             indices_list_per_worker = np.array_split(indices, self.n_worker)
             process_list = []
             for indices_part in indices_list_per_worker:
                 paths = [self.compressed_path_list[i] for i in indices_part]
-                p = Process(target=self.load_chunks, args=(paths, self.chunk_type, q))
+                p = Process(target=self.decompress, args=(paths,))
                 p.start()
                 process_list.append(p)
 
-            chunk_list = [q.get() for _ in range(len(indices))]
-
             for p in process_list:
                 p.join()
-
-            return chunk_list
         else:
-            q = Queue()
             paths = [self.compressed_path_list[i] for i in indices]
-            self.load_chunks(paths, self.chunk_type, q)
-            return list(q.queue)
+            self.decompress(paths)
+
+        def index_to_uncompressed_path(idx: int) -> Path:
+            path = self.compressed_path_list[idx]
+            path_decompressed = path.parent / path.stem
+            return path_decompressed
+
+        paths = [index_to_uncompressed_path(i) for i in indices]
+        chunk_list = [self.chunk_type.load(path) for path in paths]
+        return chunk_list
 
     @staticmethod
-    def load_chunks(paths: List[Path], chunk_type: Type[ChunkT], q: "Queue[ChunkT]") -> None:
-        for path in paths:
-            command = "{} --keep -f {}".format(_unzip_command, path)
-            subprocess.run(command, shell=True)
-            path_decompressed = path.parent / path.stem
-            chunk = chunk_type.load(path_decompressed)
-            q.put(chunk)
+    def decompress(paths: List[Path]) -> None:
+        command = _unzip_command
+        string_paths = [str(path) for path in paths]
+        command += " -f --keep %s" % " ".join(string_paths)
+        subprocess.run(command, shell=True)
 
 
 @dataclass
@@ -140,11 +137,10 @@ class LazyDecomplessDataLoader(Generic[ChunkT]):
 
     def __iter__(self) -> "LazyDecomplessDataLoader[ChunkT]":
         n_dataset = len(self.dataset)
+        assert n_dataset > 0
         indices = np.arange(n_dataset)
         if self.shuffle:
             np.random.shuffle(indices)
-
-        (n_dataset // self.batch_size)
 
         indices_list_per_iter = []
         head = 0
