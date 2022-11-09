@@ -2,7 +2,9 @@ import multiprocessing
 import os
 import subprocess
 from dataclasses import dataclass
+from multiprocessing import Process
 from pathlib import Path
+from queue import Queue
 from typing import Generic, List, Type, TypeVar
 
 import numpy as np
@@ -28,6 +30,7 @@ class Dataset(Generic[ChunkT]):
     compressed_path_list: List[Path]
     chunk_type: Type[ChunkT]
     n_worker: int
+    parallelize_threshold: int = 20
 
     def __post_init__(self):
         if self.n_worker == -1:
@@ -49,25 +52,35 @@ class Dataset(Generic[ChunkT]):
         return len(self.compressed_path_list)
 
     def get_data(self, indices: np.ndarray) -> List[ChunkT]:
-        if self.n_worker == 1:
-            paths = [self.compressed_path_list[i] for i in indices]
-            return self.load_chunks(paths, self.chunk_type)
+        is_worth_parallelizing = len(indices) > self.parallelize_threshold
+        q: "Queue[ChunkT]"
+        if self.n_worker > 1 and is_worth_parallelizing:
+            q = multiprocessing.Queue()
+            indices_list_per_worker = np.array_split(indices, self.n_worker)
+            process_list = []
+            for indices_part in indices_list_per_worker:
+                paths = [self.compressed_path_list[i] for i in indices_part]
+                p = Process(target=self.load_chunks, args=(paths, self.chunk_type, q))
+                p.start()
+                process_list.append(p)
+
+            chunk_list = [q.get() for _ in range(len(indices))]
+
+            for p in process_list:
+                p.join()
+
+            return chunk_list
         else:
-            assert False
+            q = Queue()
+            paths = [self.compressed_path_list[i] for i in indices]
+            self.load_chunks(paths, self.chunk_type, q)
+            return list(q.queue)
 
     @staticmethod
-    def load_chunks(paths: List[Path], chunk_type: Type[ChunkT]) -> List[ChunkT]:
-        chunk_list: List[ChunkT] = []
+    def load_chunks(paths: List[Path], chunk_type: Type[ChunkT], q: "Queue[ChunkT]") -> None:
         for path in paths:
             command = "gunzip --keep -f {}".format(path)
             subprocess.run(command, shell=True)
             path_decompressed = path.parent / path.stem
             chunk = chunk_type.load(path_decompressed)
-            chunk_list.append(chunk)
-        return chunk_list
-
-    def _get_data_paralllel(self, indices: np.ndarray) -> List[ChunkT]:
-        pool = multiprocessing.Pool(self.n_worker)
-        np.array_split(indices)
-        pool.map(data_generation_task, zip(range(n_cpu), n_process_list_assign))
-        return self._get_data(indices)
+            q.put(chunk)

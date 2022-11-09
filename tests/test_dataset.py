@@ -1,7 +1,9 @@
 import hashlib
+import os
 import pickle
 import subprocess
 import tempfile
+import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -39,8 +41,9 @@ def test_dataset():
 
         # prepare chunks
         hash_value_original = 0
-        for _ in range(5):
-            data = np.random.randn(50, 50, 50)
+        n_chunk = 200
+        for _ in range(n_chunk):
+            data = np.random.randn(56, 56, 28)
             chunk = ExampleChunk(data)
             name = str(uuid.uuid4()) + ".pkl"
             path = base_path / name
@@ -51,19 +54,30 @@ def test_dataset():
             hash_value_original += compute_hashint(chunk)
 
         # load
-        dataset = Dataset.load(base_path, ExampleChunk, n_worker=1)
+        elapsed_times = []
+        for n_worker in [1, 2]:
+            dataset = Dataset.load(base_path, ExampleChunk, n_worker=n_worker)
 
-        chunks1 = dataset.get_data(np.array([0, 1, 2]))
-        assert len(chunks1) == 3
-        chunks2 = dataset.get_data(np.array([3, 4]))
-        assert len(chunks2) == 2
+            hash_value_load = 0
 
-        hash_value_load = 0
-        for chunk in chunks1 + chunks2:
-            hash_value_load += compute_hashint(chunk)
+            ts = time.time()
+            indices_per_chunks = np.array_split(np.array(range(n_chunk)), 3)
+            for indices in indices_per_chunks:
+                chunks = dataset.get_data(indices)
+                assert len(chunks) == len(indices), "{} <-> {}".format(len(chunks), len(indices))
 
-        # compare hash
-        assert hash_value_original == hash_value_load
+                for chunk in chunks:
+                    hash_value_load += compute_hashint(chunk)
+            elapsed_times.append(time.time() - ts)
+
+            # compare hash
+            assert hash_value_original == hash_value_load
+
+        cpu_count = os.cpu_count()
+        assert cpu_count is not None
+        has_morethan_two_core = cpu_count >= 4
+        if has_morethan_two_core:
+            assert elapsed_times[1] < elapsed_times[0] * 0.7
 
 
 if __name__ == "__main__":
