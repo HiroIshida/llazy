@@ -1,6 +1,7 @@
 import multiprocessing
 import os
 import subprocess
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from multiprocessing import Process
 from pathlib import Path
@@ -12,14 +13,17 @@ import numpy as np
 ChunkT = TypeVar("ChunkT", bound="ChunkBase")
 
 
-class ChunkBase:
+class ChunkBase(ABC):
     @classmethod
+    @abstractmethod
     def load(cls: Type[ChunkT], path: Path) -> ChunkT:
         ...
 
+    @abstractmethod
     def dump(self, path: Path) -> None:
         ...
 
+    @abstractmethod
     def __len__(self) -> int:
         ...
 
