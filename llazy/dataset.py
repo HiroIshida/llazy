@@ -140,15 +140,19 @@ class LazyDecomplessDataLoader(Generic[ChunkT]):
         if self.shuffle:
             np.random.shuffle(indices)
 
-        n_iter = (n_dataset // self.batch_size) + 1
+        (n_dataset // self.batch_size)
 
         indices_list_per_iter = []
         head = 0
-        for i in range(n_iter):
-            step = self.batch_size if i < n_iter - 1 else n_dataset % self.batch_size
-            indices = np.arange(head, head + step)
+        for i in range(n_dataset // self.batch_size):
+            indices = np.arange(head, head + self.batch_size)
             indices_list_per_iter.append(indices)
             head += self.batch_size
+
+        rem = n_dataset % self.batch_size
+        if rem > 0:
+            indices = np.arange(head, head + rem)
+            indices_list_per_iter.append(indices)
 
         self._indices_per_iter = indices_list_per_iter
         return self

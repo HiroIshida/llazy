@@ -1,7 +1,6 @@
 import hashlib
 import os
 import pickle
-import subprocess
 import tempfile
 import time
 import uuid
@@ -16,7 +15,6 @@ from llazy.dataset import (
     DillableChunkBase,
     LazyDecomplessDataLoader,
     LazyDecomplessDataset,
-    _zip_command,
 )
 
 
@@ -105,22 +103,35 @@ def test_dataloader():
             path = base_path / name
             chunk.dump(path)
 
-        batch_size = 50
+        for batch_size in [20, 50, 80, 100, 120]:  # try to hit edge cases
+            for chunk_t in [ExampleChunk, ExampleChunk2]:
+                dataset = LazyDecomplessDataset.load(base_path, chunk_t, n_worker=2)  # type: ignore
+                loader = LazyDecomplessDataLoader(dataset, batch_size=batch_size)
 
-        for chunk_t in [ExampleChunk, ExampleChunk2]:
-            dataset = LazyDecomplessDataset.load(base_path, chunk_t, n_worker=2)  # type: ignore
-            loader = LazyDecomplessDataLoader(dataset, batch_size=batch_size)
-            for sample in loader:
-                if chunk_t == ExampleChunk2:
-                    assert len(sample) == 2
-                    sample = sample[0]
-                assert isinstance(sample, torch.Tensor)
-                assert sample.dim() == 4
-                n_batch, a, b, c = sample.shape
-                assert n_batch in (batch_size, n_chunk % batch_size)
-                assert a == 2
-                assert b == 3
-                assert c == 4
+                index_set = set()
+                loader.__iter__()  # initialize
+                for indices in loader._indices_per_iter:
+                    index_set = index_set.union(indices)
+                print(index_set)
+                print(set(list(range(n_chunk))))
+                assert index_set == set(list(range(n_chunk)))
+
+                n_data_sum = 0
+                for sample in loader:
+                    if chunk_t == ExampleChunk2:
+                        assert len(sample) == 2
+                        sample = sample[0]
+
+                    n_data_sum += len(sample)
+                    assert isinstance(sample, torch.Tensor)
+                    assert sample.dim() == 4
+                    n_batch, a, b, c = sample.shape
+                    assert n_batch in (batch_size, n_chunk % batch_size)
+                    assert a == 2
+                    assert b == 3
+                    assert c == 4
+
+                assert n_data_sum == n_chunk
 
 
 if __name__ == "__main__":
