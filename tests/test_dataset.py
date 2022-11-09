@@ -7,46 +7,38 @@ import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple, Type, TypeVar
+from typing import Tuple
 
 import numpy as np
 import torch
 
 from llazy.dataset import (
+    DillableChunkBase,
     LazyDecomplessDataLoader,
     LazyDecomplessDataset,
-    TorchChunkBase,
     _zip_command,
 )
 
-ExampleChunkT = TypeVar("ExampleChunkT", bound="ExampleChunkBase")
 
-
-@dataclass  # type: ignore
-class ExampleChunkBase(TorchChunkBase):
+@dataclass
+class ExampleChunk(DillableChunkBase):
     data: np.ndarray
 
     def __len__(self) -> int:
         return 1
 
-    @classmethod
-    def load(cls: Type[ExampleChunkT], path: Path) -> ExampleChunkT:
-        with path.open(mode="rb") as f:
-            data = pickle.load(f)
-        return cls(data)
-
-    def dump(self, path: Path) -> None:
-        with path.open(mode="wb") as f:
-            pickle.dump(self.data, f)
-
-
-class ExampleChunk(ExampleChunkBase):
     def to_tensors(self) -> torch.Tensor:
         a = torch.from_numpy(self.data).float()
         return a
 
 
-class ExampleChunk2(ExampleChunkBase):
+@dataclass
+class ExampleChunk2(DillableChunkBase):
+    data: np.ndarray
+
+    def __len__(self) -> int:
+        return 1
+
     def to_tensors(self) -> Tuple[torch.Tensor, ...]:
         a = torch.from_numpy(self.data).float()
         return a, a
@@ -103,6 +95,7 @@ def test_dataset():
 
 
 def test_dataloader():
+
     with tempfile.TemporaryDirectory() as td:
         base_path = Path(td)
 

@@ -8,6 +8,7 @@ from pathlib import Path
 from queue import Queue
 from typing import Generic, List, Optional, Tuple, Type, TypeVar, Union
 
+import dill
 import numpy as np
 import torch
 from torch.utils.data import default_collate
@@ -19,7 +20,7 @@ _unzip_command = "unpigz" if _has_pigz else "gunzip"
 _zip_command = "pigz" if _has_pigz else "gzip"
 
 ChunkT = TypeVar("ChunkT", bound="ChunkBase")
-TorchChunkT = TypeVar("TorchChunkT", bound="TorchChunkBase")
+DillableChunkT = TypeVar("DillableChunkT", bound="DillableChunkBase")
 
 
 class ChunkBase(ABC):
@@ -36,11 +37,22 @@ class ChunkBase(ABC):
     def __len__(self) -> int:
         pass
 
-
-class TorchChunkBase(ChunkBase):
     @abstractmethod
     def to_tensors(self) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
         pass
+
+
+@dataclass  # type: ignore
+class DillableChunkBase(ChunkBase):
+    @classmethod
+    def load(cls: Type[DillableChunkT], path: Path) -> DillableChunkT:
+        with path.open(mode="rb") as f:
+            data = dill.load(f)
+        return data
+
+    def dump(self, path: Path) -> None:
+        with path.open(mode="wb") as f:
+            dill.dump(self, f)
 
 
 @dataclass
@@ -106,17 +118,17 @@ class LazyDecomplessDataset(Generic[ChunkT]):
 
 
 @dataclass
-class LazyDecomplessDataLoader(Generic[TorchChunkT]):
+class LazyDecomplessDataLoader(Generic[ChunkT]):
     r"""
     A dataloader class that has the similar inteface as
     pytorch DataLoader
     """
-    dataset: LazyDecomplessDataset[TorchChunkT]
+    dataset: LazyDecomplessDataset[ChunkT]
     batch_size: int = 1
     shuffle: bool = True
     _indices_per_iter: Optional[List[np.ndarray]] = None  # set when __iter__ called
 
-    def __iter__(self) -> "LazyDecomplessDataLoader[TorchChunkT]":
+    def __iter__(self) -> "LazyDecomplessDataLoader[ChunkT]":
         n_dataset = len(self.dataset)
         indices = np.arange(n_dataset)
         if self.shuffle:
