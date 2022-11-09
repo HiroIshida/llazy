@@ -15,7 +15,7 @@ import torch
 from llazy.dataset import (
     LazyDecomplessDataLoader,
     LazyDecomplessDataset,
-    TorchChunkProtocol,
+    TorchChunkBase,
     _zip_command,
 )
 
@@ -23,7 +23,7 @@ ExampleChunkT = TypeVar("ExampleChunkT", bound="ExampleChunkBase")
 
 
 @dataclass  # type: ignore
-class ExampleChunkBase(TorchChunkProtocol):
+class ExampleChunkBase(TorchChunkBase):
     data: np.ndarray
 
     def __len__(self) -> int:

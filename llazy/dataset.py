@@ -18,11 +18,11 @@ assert _has_gzip or _has_pigz
 _unzip_command = "unpigz" if _has_pigz else "gunzip"
 _zip_command = "pigz" if _has_pigz else "gzip"
 
-ChunkT = TypeVar("ChunkT", bound="ChunkProtocol")
-TorchChunkT = TypeVar("TorchChunkT", bound="TorchChunkProtocol")
+ChunkT = TypeVar("ChunkT", bound="ChunkBase")
+TorchChunkT = TypeVar("TorchChunkT", bound="TorchChunkBase")
 
 
-class ChunkProtocol(ABC):
+class ChunkBase(ABC):
     @classmethod
     @abstractmethod
     def load(cls: Type[ChunkT], path: Path) -> ChunkT:
@@ -37,7 +37,7 @@ class ChunkProtocol(ABC):
         pass
 
 
-class TorchChunkProtocol(ChunkProtocol):
+class TorchChunkBase(ChunkBase):
     @abstractmethod
     def to_tensors(self) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
         pass
