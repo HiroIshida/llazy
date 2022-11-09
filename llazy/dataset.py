@@ -1,5 +1,7 @@
+import copy
 import os
 import pickle
+import random
 import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, fields
@@ -133,6 +135,19 @@ class LazyDecomplessDataset(Generic[ChunkT]):
         string_paths = [str(path) for path in paths]
         command += " -f --keep %s" % " ".join(string_paths)
         subprocess.run(command, shell=True)
+
+    def random_split(
+        self, valid_rate: float = 0.1
+    ) -> Tuple["LazyDecomplessDataset", "LazyDecomplessDataset"]:
+        path_list = copy.deepcopy(self.compressed_path_list)
+        random.shuffle(path_list)
+
+        n_valid = int(len(self) * valid_rate)
+        dataset_train = copy.deepcopy(self)
+        dataset_train.compressed_path_list = path_list[:-n_valid]
+        dataset_valid = copy.deepcopy(self)
+        dataset_valid.compressed_path_list = path_list[-n_valid:]
+        return dataset_train, dataset_valid
 
 
 @dataclass

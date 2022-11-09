@@ -84,6 +84,14 @@ def test_dataset():
             # compare hash
             assert hash_value_original == hash_value_load
 
+            # test random split
+            train_dataset, valid_dataset = dataset.random_split(0.1)
+            assert len(train_dataset) == 180
+            assert len(valid_dataset) == 20
+            set_before = set(dataset.compressed_path_list)
+            set_after = set(train_dataset.compressed_path_list + valid_dataset.compressed_path_list)
+            assert set_before == set_after
+
         cpu_count = os.cpu_count()
         assert cpu_count is not None
         has_morethan_two_core = cpu_count >= 4
