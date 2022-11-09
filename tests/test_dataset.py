@@ -12,14 +12,14 @@ import numpy as np
 import torch
 
 from llazy.dataset import (
-    DillableChunkBase,
     LazyDecomplessDataLoader,
     LazyDecomplessDataset,
+    PicklableChunkBase,
 )
 
 
 @dataclass
-class ExampleChunk(DillableChunkBase):
+class ExampleChunk(PicklableChunkBase):
     data: np.ndarray
 
     def __len__(self) -> int:
@@ -31,7 +31,7 @@ class ExampleChunk(DillableChunkBase):
 
 
 @dataclass
-class ExampleChunk2(DillableChunkBase):
+class ExampleChunk2(PicklableChunkBase):
     data: np.ndarray
 
     def __len__(self) -> int:
@@ -108,8 +108,9 @@ def test_dataloader():
                 dataset = LazyDecomplessDataset.load(base_path, chunk_t, n_worker=2)  # type: ignore
                 loader = LazyDecomplessDataLoader(dataset, batch_size=batch_size)
 
-                index_set = set()
+                index_set = set()  # type: ignore
                 loader.__iter__()  # initialize
+                assert loader._indices_per_iter is not None
                 for indices in loader._indices_per_iter:
                     index_set = index_set.union(indices)
                 print(index_set)

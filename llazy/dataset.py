@@ -1,5 +1,6 @@
 import multiprocessing
 import os
+import pickle
 import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, fields
@@ -8,7 +9,6 @@ from pathlib import Path
 from queue import Queue
 from typing import Generic, List, Optional, Tuple, Type, TypeVar, Union
 
-import dill
 import numpy as np
 import torch
 from torch.utils.data import default_collate
@@ -20,7 +20,7 @@ _unzip_command = "unpigz" if _has_pigz else "gunzip"
 _zip_command = "pigz" if _has_pigz else "gzip"
 
 ChunkT = TypeVar("ChunkT", bound="ChunkBase")
-DillableChunkT = TypeVar("DillableChunkT", bound="DillableChunkBase")
+PicklableChunkT = TypeVar("PicklableChunkT", bound="PicklableChunkBase")
 
 
 class ChunkBase(ABC):
@@ -48,11 +48,11 @@ class ChunkBase(ABC):
 
 
 @dataclass  # type: ignore
-class DillableChunkBase(ChunkBase):
+class PicklableChunkBase(ChunkBase):
     @classmethod
-    def load(cls: Type[DillableChunkT], path: Path) -> DillableChunkT:
+    def load(cls: Type[PicklableChunkT], path: Path) -> PicklableChunkT:
         with path.open(mode="rb") as f:
-            dic = dill.load(f)
+            dic = pickle.load(f)
         return cls(**dic)
 
     def dump_impl(self, path: Path) -> None:
@@ -62,7 +62,7 @@ class DillableChunkBase(ChunkBase):
             key = field.name
             dic[key] = self.__dict__[key]
         with path.open(mode="wb") as f:
-            dill.dump(dic, f)
+            pickle.dump(dic, f)
 
 
 @dataclass
