@@ -159,10 +159,14 @@ class LazyDecomplessDataLoader(Generic[ChunkT]):
     dataset: LazyDecomplessDataset[ChunkT]
     batch_size: int = 1
     shuffle: bool = True
+    max_data_num: Optional[int] = None
     _indices_per_iter: Optional[List[np.ndarray]] = None  # set when __iter__ called
 
     def __iter__(self) -> "LazyDecomplessDataLoader[ChunkT]":
         n_dataset = len(self.dataset)
+        if self.max_data_num is not None:
+            n_dataset = min(n_dataset, self.max_data_num)
+
         assert n_dataset > 0
         indices = np.arange(n_dataset)
         if self.shuffle:
