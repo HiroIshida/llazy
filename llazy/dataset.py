@@ -14,8 +14,13 @@ from torch.utils.data import default_collate
 _has_gzip = subprocess.run("which gzip > /dev/null", shell=True).returncode == 0
 _has_pigz = subprocess.run("which pigz > /dev/null", shell=True).returncode == 0
 assert _has_gzip or _has_pigz
-_unzip_command = "unpigz" if _has_pigz else "gunzip"
-_zip_command = "pigz" if _has_pigz else "gzip"
+
+if _has_pigz:
+    _zip_command = "pigz"
+    _unzip_command = "unpigz"
+else:
+    _zip_command = "gzip"
+    _unzip_command = "gunzip"
 
 ChunkT = TypeVar("ChunkT", bound="ChunkBase")
 PicklableChunkT = TypeVar("PicklableChunkT", bound="PicklableChunkBase")
