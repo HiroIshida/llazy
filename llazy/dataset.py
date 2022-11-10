@@ -5,7 +5,6 @@ import random
 import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, fields
-from multiprocessing import Process
 from pathlib import Path
 from typing import Generic, List, Optional, Tuple, Type, TypeVar, Union
 
@@ -99,21 +98,10 @@ class LazyDecomplessDataset(Generic[ChunkT]):
         return len(self.compressed_path_list)
 
     def get_data(self, indices: np.ndarray) -> List[ChunkT]:
-        is_worth_parallelizing = len(indices) > self.parallelize_threshold
-        if self.n_worker > 1 and is_worth_parallelizing:
-            indices_list_per_worker = np.array_split(indices, self.n_worker)
-            process_list = []
-            for indices_part in indices_list_per_worker:
-                paths = [self.compressed_path_list[i] for i in indices_part]
-                p = Process(target=self.decompress, args=(paths,))
-                p.start()
-                process_list.append(p)
-
-            for p in process_list:
-                p.join()
-        else:
-            paths = [self.compressed_path_list[i] for i in indices]
-            self.decompress(paths)
+        command = "xargs -n 1 -P {0} {1} --keep --force".format(self.n_worker, _unzip_command)
+        paths = [self.compressed_path_list[i] for i in indices]
+        paths_as_string = "\n".join([str(p) for p in paths]).encode()
+        subprocess.run(command, shell=True, input=paths_as_string, text=False)
 
         def index_to_uncompressed_path(idx: int) -> Path:
             path = self.compressed_path_list[idx]
