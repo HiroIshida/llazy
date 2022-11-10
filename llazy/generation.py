@@ -17,6 +17,7 @@ class DataGenerationTaskArg:
     number: int
     show_process_bar: bool
     base_path: Path
+    extension: str = ".pkl"
 
 
 class DataGenerationTask(ABC, Process, Generic[ChunkT]):
@@ -41,6 +42,6 @@ class DataGenerationTask(ABC, Process, Generic[ChunkT]):
 
         for _ in tqdm.tqdm(range(self.arg.number), disable=disable_tqdm):
             chunk = self.generate_single_data()
-            name = str(uuid.uuid4()) + ".pkl"
+            name = str(uuid.uuid4()) + self.arg.extension
             file_path = self.arg.base_path / name
             chunk.dump(file_path)
