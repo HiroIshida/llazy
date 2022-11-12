@@ -1,9 +1,11 @@
+import multiprocessing
+import os
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from multiprocessing import Process
 from pathlib import Path
-from typing import Generic
+from typing import Generic, Optional
 
 import numpy as np
 import tqdm
@@ -13,10 +15,10 @@ from llazy.dataset import ChunkT
 
 @dataclass
 class DataGenerationTaskArg:
-    process_idx: int  # is not pid
     number: int
     show_process_bar: bool
     base_path: Path
+    queue: Optional[multiprocessing.Queue] = None
     extension: str = ".pkl"
 
 
@@ -37,11 +39,14 @@ class DataGenerationTask(ABC, Process, Generic[ChunkT]):
         pass
 
     def run(self) -> None:
-        np.random.seed(self.arg.process_idx)
+        unique_id = (uuid.getnode() + os.getpid()) % (2**32 - 1)
+        np.random.seed(unique_id)
         disable_tqdm = not self.arg.show_process_bar
 
         for _ in tqdm.tqdm(range(self.arg.number), disable=disable_tqdm):
             chunk = self.generate_single_data()
             name = str(uuid.uuid4()) + self.arg.extension
             file_path = self.arg.base_path / name
-            chunk.dump(file_path)
+            dump_path = chunk.dump(file_path)
+            if self.arg.queue is not None:
+                self.arg.queue.put(dump_path)

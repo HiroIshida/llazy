@@ -45,10 +45,11 @@ class ChunkBase(ABC):
     def to_tensors(self) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
         pass
 
-    def dump(self, path: Path) -> None:
+    def dump(self, path: Path) -> Path:
         self.dump_impl(path)
         command = "{0} -1 {1}".format(_zip_command, path)
         subprocess.run(command, shell=True)
+        return path.parent / (path.name + ".gz")
 
 
 @dataclass  # type: ignore
