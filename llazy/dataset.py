@@ -150,6 +150,10 @@ class LazyDecomplessDataLoader(Generic[ChunkT]):
     max_data_num: Optional[int] = None
     _indices_per_iter: Optional[List[np.ndarray]] = None  # set when __iter__ called
 
+    def __len__(self) -> int:
+        n_dataset = len(self.dataset)
+        return n_dataset // self.batch_size + int(n_dataset % self.batch_size > 0)
+
     def __iter__(self) -> "LazyDecomplessDataLoader[ChunkT]":
         n_dataset = len(self.dataset)
         if self.max_data_num is not None:
