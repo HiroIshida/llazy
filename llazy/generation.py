@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from multiprocessing import Process
 from pathlib import Path
-from typing import Generic, Optional
+from typing import Dict, Generic, Optional
 
 import numpy as np
 import tqdm
@@ -18,6 +18,7 @@ class DataGenerationTaskArg:
     number: int
     show_process_bar: bool
     base_path: Path
+    info: Optional[Dict] = None
     queue: Optional[multiprocessing.Queue] = None
     extension: str = ".pkl"
 
