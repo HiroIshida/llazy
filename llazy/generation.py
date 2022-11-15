@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from multiprocessing import Process
 from pathlib import Path
-from typing import Dict, Generic, Optional
+from typing import Dict, Generic, List, Optional
 
 import numpy as np
 import tqdm
@@ -19,6 +19,7 @@ class DataGenerationTaskArg:
     show_process_bar: bool
     base_path: Path
     info: Optional[Dict] = None
+    cpu_core: Optional[List[int]] = None
     queue: Optional[multiprocessing.Queue] = None
     extension: str = ".pkl"
 
@@ -40,6 +41,9 @@ class DataGenerationTask(ABC, Process, Generic[ChunkT]):
         pass
 
     def run(self) -> None:
+        if self.arg.cpu_core is not None:
+            cores = ",".join([str(e) for e in self.arg.cpu_core])
+            os.system("taskset -p -c {} {}".format(cores, os.getpid()))
         unique_id = (uuid.getnode() + os.getpid()) % (2**32 - 1)
         np.random.seed(unique_id)
         disable_tqdm = not self.arg.show_process_bar
